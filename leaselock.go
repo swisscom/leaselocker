@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -42,7 +43,13 @@ type LeaseLock struct {
 }
 
 // newLeaseLock will create a lock of type LeaseLock according to the input parameters
+// nsn will have Name converted to lowercase
 func newLeaseLock(nsn types.NamespacedName, coordinationClient coordinationv1.CoordinationV1Interface, rlc ResourceLockConfig) (Interface, error) {
+	// Transform to lowercase name to conform to requirements
+	nsn = types.NamespacedName{
+		Namespace: nsn.Namespace,
+		Name:      strings.ToLower(nsn.Name),
+	}
 	leaseLock := &LeaseLock{
 		LeaseMeta: metav1.ObjectMeta{
 			Namespace: nsn.Namespace,
