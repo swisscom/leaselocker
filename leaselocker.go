@@ -111,6 +111,7 @@ type LeaseLocker struct {
 
 // NewLeaseLocker creates a new LeaseLocker instance which uses the given rest.Config to create a client to communicate
 // with the k8s API
+// namespacedName will have the Name transformed to lowercase automatically
 func NewLeaseLocker(config *rest.Config, namespacedName types.NamespacedName, owner string) (*LeaseLocker, error) {
 	client, err := clientset.NewForConfig(config)
 	if err != nil {
