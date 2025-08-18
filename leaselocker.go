@@ -240,10 +240,11 @@ func (l *LeaseLocker) TryLock(ctx context.Context) bool {
 	return false
 }
 
-func (l *LeaseLocker) Unlock() {
+// Unlock releases the lock held by the LeaseLocker instance. Returns true if the lock was successfully released.
+func (l *LeaseLocker) Unlock() bool {
 	l.lockCtxCancel()
 	l.renewWG.Wait()
-	l.release()
+	return l.release()
 }
 
 func (l *LeaseLocker) acquire(ctx context.Context) bool {
