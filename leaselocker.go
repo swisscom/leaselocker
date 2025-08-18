@@ -257,9 +257,7 @@ func (l *LeaseLocker) UnlockWithRetry(ctx context.Context) {
 	timerCtx, timerCancel := context.WithTimeout(ctx, l.config.UnlockWithRetryPeriod)
 	defer timerCancel()
 	wait.JitterUntil(func() {
-		l.lockCtxCancel()
-		l.renewWG.Wait()
-		if l.release() {
+		if l.Unlock() {
 			timerCancel()
 		}
 	}, l.config.RetryPeriod, leaderelection.JitterFactor, true, timerCtx.Done())
