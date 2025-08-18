@@ -70,6 +70,10 @@ type Config struct {
 	// Core clients default this value to 2 seconds.
 	RetryPeriod time.Duration
 
+	// UnlockWithRetryPeriod is the duration the LeaseLocker clients should retry
+	// unlocking the lease if the first attempt fails.
+	UnlockWithRetryPeriod time.Duration
+
 	// ReleaseOnCancel should be set true if the lock should be released
 	// when the run context is cancelled. If you set this to true, you must
 	// ensure all code guarded by this lease has successfully completed
@@ -125,13 +129,14 @@ func NewLeaseLocker(config *rest.Config, namespacedName types.NamespacedName, ow
 		return nil, err
 	}
 	return newLeaseLockerWithConfig(Config{
-		Lock:            lock,
-		LeaseDuration:   60 * time.Second,
-		RenewDeadline:   10 * time.Second,
-		RetryPeriod:     2 * time.Second,
-		ReleaseOnCancel: false,
-		UseObservedTime: false,
-		Name:            lock.Describe() + ": " + lock.Identity(),
+		Lock:                  lock,
+		LeaseDuration:         60 * time.Second,
+		RenewDeadline:         10 * time.Second,
+		RetryPeriod:           2 * time.Second,
+		UnlockWithRetryPeriod: 10 * time.Second,
+		ReleaseOnCancel:       false,
+		UseObservedTime:       false,
+		Name:                  lock.Describe() + ": " + lock.Identity(),
 	})
 }
 
@@ -245,6 +250,19 @@ func (l *LeaseLocker) Unlock() bool {
 	l.lockCtxCancel()
 	l.renewWG.Wait()
 	return l.release()
+}
+
+// UnlockWithRetry releases the lock held by the LeaseLocker instance and retries if the release fails.
+func (l *LeaseLocker) UnlockWithRetry(ctx context.Context) {
+	timerCtx, timerCancel := context.WithTimeout(ctx, l.config.UnlockWithRetryPeriod)
+	defer timerCancel()
+	wait.JitterUntil(func() {
+		l.lockCtxCancel()
+		l.renewWG.Wait()
+		if l.release() {
+			timerCancel()
+		}
+	}, l.config.RetryPeriod, leaderelection.JitterFactor, true, timerCtx.Done())
 }
 
 func (l *LeaseLocker) acquire(ctx context.Context) bool {
