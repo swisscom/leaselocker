@@ -120,36 +120,50 @@ func TestLeaseSpecToLeaseLockRecord(t *testing.T) {
 
 func TestLeaseLockRecordToLeaseSpec(t *testing.T) {
 	tm := time.Now()
-	records := []LockRecord{
+	records := []struct {
+		name string
+		lr   LockRecord
+	}{
 		{
-			HolderIdentity:       "holder1",
-			LeaseDurationSeconds: 30,
-			LeaseTransitions:     2,
-			AcquireTime:          metav1.Time{Time: tm},
-			RenewTime:            metav1.Time{Time: tm.Add(time.Second)},
+			name: "full LockRecord spec",
+			lr: LockRecord{
+				HolderIdentity:       "holder1",
+				LeaseDurationSeconds: 30,
+				LeaseTransitions:     2,
+				AcquireTime:          metav1.Time{Time: tm},
+				RenewTime:            metav1.Time{Time: tm.Add(time.Second)},
+			},
 		},
-		{},
 		{
-			HolderIdentity: "holder2",
+			name: "empty LockRecord spec",
+			lr:   LockRecord{},
+		},
+		{
+			name: "only holder identity in LockRecord spec",
+			lr: LockRecord{
+				HolderIdentity: "holder2",
+			},
 		},
 	}
-	for i, lr := range records {
-		got := LeaseLockRecordToLeaseSpec(&lr)
-		if lr.HolderIdentity != "" && (got.HolderIdentity == nil || *got.HolderIdentity != lr.HolderIdentity) {
-			t.Errorf("case %d: HolderIdentity mismatch", i)
-		}
-		if got.LeaseDurationSeconds == nil || int(*got.LeaseDurationSeconds) != lr.LeaseDurationSeconds {
-			t.Errorf("case %d: LeaseDurationSeconds mismatch", i)
-		}
-		if got.LeaseTransitions == nil || int(*got.LeaseTransitions) != lr.LeaseTransitions {
-			t.Errorf("case %d: LeaseTransitions mismatch", i)
-		}
-		if got.AcquireTime == nil || !got.AcquireTime.Time.Equal(lr.AcquireTime.Time) {
-			t.Errorf("case %d: AcquireTime mismatch", i)
-		}
-		if got.RenewTime == nil || !got.RenewTime.Time.Equal(lr.RenewTime.Time) {
-			t.Errorf("case %d: RenewTime mismatch", i)
-		}
+	for _, tt := range records {
+		t.Run(tt.name, func(t *testing.T) {
+			got := LeaseLockRecordToLeaseSpec(&tt.lr)
+			if tt.lr.HolderIdentity != "" && (got.HolderIdentity == nil || *got.HolderIdentity != tt.lr.HolderIdentity) {
+				t.Errorf("HolderIdentity mismatch: got %v, want %v", got.HolderIdentity, tt.lr.HolderIdentity)
+			}
+			if got.LeaseDurationSeconds == nil || int(*got.LeaseDurationSeconds) != tt.lr.LeaseDurationSeconds {
+				t.Errorf("LeaseDurationSeconds mismatch: got %v, want %v", got.LeaseDurationSeconds, tt.lr.LeaseDurationSeconds)
+			}
+			if got.LeaseTransitions == nil || int(*got.LeaseTransitions) != tt.lr.LeaseTransitions {
+				t.Errorf("LeaseTransitions mismatch: got %v, want %v", got.LeaseTransitions, tt.lr.LeaseTransitions)
+			}
+			if got.AcquireTime == nil || !got.AcquireTime.Time.Equal(tt.lr.AcquireTime.Time) {
+				t.Errorf("AcquireTime mismatch: got %v, want %v", got.AcquireTime, tt.lr.AcquireTime)
+			}
+			if got.RenewTime == nil || !got.RenewTime.Time.Equal(tt.lr.RenewTime.Time) {
+				t.Errorf("RenewTime mismatch: got %v, want %v", got.RenewTime, tt.lr.RenewTime)
+			}
+		})
 	}
 }
 
