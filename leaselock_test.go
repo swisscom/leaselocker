@@ -3,12 +3,15 @@ package leaselocker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	coordv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	coordapplyv1 "k8s.io/client-go/applyconfigurations/coordination/v1"
@@ -26,6 +29,30 @@ type fakeLeaseClient struct {
 	createErr error
 	getErr    error
 	updateErr error
+}
+
+type fakeRecorder struct {
+	Events []string
+}
+
+// Eventf implements record.EventRecorder interface
+func (f *fakeRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	eventMsg := fmt.Sprintf(messageFmt, args...)
+	fullMsg := fmt.Sprintf("%s %s: %s", eventtype, reason, eventMsg)
+	f.Events = append(f.Events, fullMsg)
+}
+
+// Event implements record.EventRecorder interface
+func (f *fakeRecorder) Event(object runtime.Object, eventtype, reason, message string) {
+	fullMsg := fmt.Sprintf("%s %s: %s", eventtype, reason, message)
+	f.Events = append(f.Events, fullMsg)
+}
+
+// AnnotatedEventf implements record.EventRecorder interface
+func (f *fakeRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
+	eventMsg := fmt.Sprintf(messageFmt, args...)
+	fullMsg := fmt.Sprintf("%s %s: %s", eventtype, reason, eventMsg)
+	f.Events = append(f.Events, fullMsg)
 }
 
 func (f *fakeLeaseClient) RESTClient() rest.Interface {
@@ -203,6 +230,57 @@ func TestLeaseLock_Update(t *testing.T) {
 	err = ll.Update(ctx, lr)
 	if err == nil {
 		t.Errorf("expected error")
+	}
+}
+
+func TestLeaseLock_RecordEvent(t *testing.T) {
+	tests := []struct {
+		name          string
+		eventRecorder *fakeRecorder
+		eventMsg      string
+	}{
+		{
+			name:          "With event recorder",
+			eventRecorder: &fakeRecorder{},
+			eventMsg:      "test event",
+		},
+		{
+			name:          "Without event recorder",
+			eventRecorder: nil,
+			eventMsg:      "test event",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rlc := ResourceLockConfig{
+				Identity: "test-identity",
+			}
+			if tt.eventRecorder != nil {
+				rlc.EventRecorder = tt.eventRecorder
+			}
+			ll := &LeaseLock{
+				LockConfig: rlc,
+				lease: &coordv1.Lease{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-lease",
+						Namespace: "test-ns",
+					},
+				},
+			}
+
+			ll.RecordEvent(tt.eventMsg)
+
+			if tt.eventRecorder != nil {
+				expectedMsg := fmt.Sprintf("%v %v", ll.LockConfig.Identity, tt.eventMsg)
+				if len(tt.eventRecorder.Events) != 1 {
+					t.Errorf("Expected 1 event, got %d", len(tt.eventRecorder.Events))
+				}
+				if !strings.Contains(tt.eventRecorder.Events[0], expectedMsg) {
+					t.Errorf("Event message does not contain expected content, got %v, want %v", tt.eventRecorder.Events[0], expectedMsg)
+				}
+			}
+		})
 	}
 }
 
