@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	coordapplyv1 "k8s.io/client-go/applyconfigurations/coordination/v1"
 	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
+	"k8s.io/client-go/rest"
 )
 
 func (f *fakeLeaseClient) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
@@ -25,6 +26,10 @@ type fakeLeaseClient struct {
 	createErr error
 	getErr    error
 	updateErr error
+}
+
+func (f *fakeLeaseClient) RESTClient() rest.Interface {
+	return nil
 }
 
 // Implements coordinationv1.LeasesGetter
@@ -260,6 +265,53 @@ func TestLeaseLock_Identity(t *testing.T) {
 	ll := &LeaseLock{LockConfig: ResourceLockConfig{Identity: "id1"}}
 	if got := ll.Identity(); got != "id1" {
 		t.Errorf("Identity() = %v, want %v", got, "id1")
+	}
+}
+
+func TestNewLeaseLock(t *testing.T) {
+	fakeCoordClient := &fakeLeaseClient{}
+	rlc := ResourceLockConfig{Identity: "identity1"}
+	nsn := types.NamespacedName{Name: "test", Namespace: "ns"}
+
+	// Case 1: Valid NamespacedName
+	lock, err := newLeaseLock(nsn, fakeCoordClient, rlc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if lock == nil {
+		t.Fatal("expected non-nil LeaseLock")
+	}
+	if lock.Describe() != "ns/test" {
+		t.Errorf("unexpected description: %v", lock.Describe())
+	}
+	if lock.Identity() != "identity1" {
+		t.Errorf("unexpected identity: %v", lock.Identity())
+	}
+
+	// Case 2: Uppercase NamespacedName (should convert to lowercase)
+	nsnUppercase := types.NamespacedName{Name: "test", Namespace: "ns"}
+	lock, err = newLeaseLock(nsnUppercase, fakeCoordClient, rlc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if lock.Describe() != "ns/test" {
+		t.Errorf("unexpected description with uppercase input: %v", lock.Describe())
+	}
+
+	// Case 3: Nil NamespacedName
+	var nilNsn types.NamespacedName
+	lock, err = newLeaseLock(nilNsn, fakeCoordClient, rlc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if lock == nil {
+		t.Fatal("expected non-nil LeaseLock")
+	}
+	if lock.Describe() != "/" {
+		t.Errorf("unexpected description: %v", lock.Describe())
+	}
+	if lock.Identity() != "identity1" {
+		t.Errorf("unexpected identity: %v", lock.Identity())
 	}
 }
 
