@@ -76,97 +76,50 @@ func (f *fakeLeaseClient) Apply(ctx context.Context, lease *coordapplyv1.LeaseAp
 	return nil, nil
 }
 
-func TestLeaseSpecToLeaseLockRecord(t *testing.T) {
-	tm := time.Now()
+func TestNewLeaseLock(t *testing.T) {
+	fakeCoordClient := &fakeLeaseClient{}
+
 	specs := []struct {
-		name string
-		spec *coordv1.LeaseSpec
-		want LockRecord
+		name             string
+		identity         string
+		nsn              types.NamespacedName
+		expectedDescribe string
 	}{
 		{
-			name: "all fields",
-			spec: &coordv1.LeaseSpec{
-				HolderIdentity:       strPtr("holder1"),
-				LeaseDurationSeconds: int32Ptr(30),
-				LeaseTransitions:     int32Ptr(2),
-				AcquireTime:          &metav1.MicroTime{Time: tm},
-				RenewTime:            &metav1.MicroTime{Time: tm.Add(time.Second)},
-			},
-			want: LockRecord{
-				HolderIdentity:       "holder1",
-				LeaseDurationSeconds: 30,
-				LeaseTransitions:     2,
-				AcquireTime:          metav1.Time{Time: tm},
-				RenewTime:            metav1.Time{Time: tm.Add(time.Second)},
-			},
+			name:             "Valid NamespacedName",
+			identity:         "holder1",
+			nsn:              types.NamespacedName{Name: "test", Namespace: "ns"},
+			expectedDescribe: "ns/test",
 		},
 		{
-			name: "partial fields",
-			spec: &coordv1.LeaseSpec{
-				HolderIdentity: strPtr("holder2"),
-			},
-			want: LockRecord{HolderIdentity: "holder2"},
+			name:             "Uppercase Name in NamespacedName",
+			identity:         "holder2",
+			nsn:              types.NamespacedName{Name: "TEST", Namespace: "ns"},
+			expectedDescribe: "ns/test",
 		},
 		{
-			name: "nil fields",
-			spec: &coordv1.LeaseSpec{},
-			want: LockRecord{},
+			name:             "Nil NamespacedName",
+			identity:         "holder3",
+			nsn:              types.NamespacedName{},
+			expectedDescribe: "/",
 		},
 	}
+
 	for _, tt := range specs {
 		t.Run(tt.name, func(t *testing.T) {
-			got := LeaseSpecToLeaseLockRecord(tt.spec)
-			if !reflect.DeepEqual(*got, tt.want) {
-				t.Errorf("got %+v, want %+v", *got, tt.want)
+			rlc := ResourceLockConfig{Identity: tt.identity}
+			got, err := newLeaseLock(tt.nsn, fakeCoordClient, rlc)
+			if err != nil {
+				t.Fatalf("unexpected error: got %v", err)
 			}
-		})
-	}
-}
-
-func TestLeaseLockRecordToLeaseSpec(t *testing.T) {
-	tm := time.Now()
-	records := []struct {
-		name string
-		lr   LockRecord
-	}{
-		{
-			name: "full LockRecord spec",
-			lr: LockRecord{
-				HolderIdentity:       "holder1",
-				LeaseDurationSeconds: 30,
-				LeaseTransitions:     2,
-				AcquireTime:          metav1.Time{Time: tm},
-				RenewTime:            metav1.Time{Time: tm.Add(time.Second)},
-			},
-		},
-		{
-			name: "empty LockRecord spec",
-			lr:   LockRecord{},
-		},
-		{
-			name: "only holder identity in LockRecord spec",
-			lr: LockRecord{
-				HolderIdentity: "holder2",
-			},
-		},
-	}
-	for _, tt := range records {
-		t.Run(tt.name, func(t *testing.T) {
-			got := LeaseLockRecordToLeaseSpec(&tt.lr)
-			if tt.lr.HolderIdentity != "" && (got.HolderIdentity == nil || *got.HolderIdentity != tt.lr.HolderIdentity) {
-				t.Errorf("HolderIdentity mismatch: got %v, want %v", got.HolderIdentity, tt.lr.HolderIdentity)
+			if got == nil {
+				t.Fatal("got nil LeaseLock, want non-nil LeaseLock")
 			}
-			if got.LeaseDurationSeconds == nil || int(*got.LeaseDurationSeconds) != tt.lr.LeaseDurationSeconds {
-				t.Errorf("LeaseDurationSeconds mismatch: got %v, want %v", got.LeaseDurationSeconds, tt.lr.LeaseDurationSeconds)
+			if got.Describe() != tt.expectedDescribe {
+				t.Errorf("Describe(): got %v, want %v", got.Describe(), tt.expectedDescribe)
 			}
-			if got.LeaseTransitions == nil || int(*got.LeaseTransitions) != tt.lr.LeaseTransitions {
-				t.Errorf("LeaseTransitions mismatch: got %v, want %v", got.LeaseTransitions, tt.lr.LeaseTransitions)
-			}
-			if got.AcquireTime == nil || !got.AcquireTime.Time.Equal(tt.lr.AcquireTime.Time) {
-				t.Errorf("AcquireTime mismatch: got %v, want %v", got.AcquireTime, tt.lr.AcquireTime)
-			}
-			if got.RenewTime == nil || !got.RenewTime.Time.Equal(tt.lr.RenewTime.Time) {
-				t.Errorf("RenewTime mismatch: got %v, want %v", got.RenewTime, tt.lr.RenewTime)
+			if got.Identity() != tt.identity {
+				t.Errorf("Identity(): got %v, want %v", got.Identity(), tt.identity)
 			}
 		})
 	}
@@ -268,50 +221,99 @@ func TestLeaseLock_Identity(t *testing.T) {
 	}
 }
 
-func TestNewLeaseLock(t *testing.T) {
-	fakeCoordClient := &fakeLeaseClient{}
-	rlc := ResourceLockConfig{Identity: "identity1"}
-	nsn := types.NamespacedName{Name: "test", Namespace: "ns"}
+func TestLeaseSpecToLeaseLockRecord(t *testing.T) {
+	tm := time.Now()
+	specs := []struct {
+		name string
+		spec *coordv1.LeaseSpec
+		want LockRecord
+	}{
+		{
+			name: "all fields",
+			spec: &coordv1.LeaseSpec{
+				HolderIdentity:       strPtr("holder1"),
+				LeaseDurationSeconds: int32Ptr(30),
+				LeaseTransitions:     int32Ptr(2),
+				AcquireTime:          &metav1.MicroTime{Time: tm},
+				RenewTime:            &metav1.MicroTime{Time: tm.Add(time.Second)},
+			},
+			want: LockRecord{
+				HolderIdentity:       "holder1",
+				LeaseDurationSeconds: 30,
+				LeaseTransitions:     2,
+				AcquireTime:          metav1.Time{Time: tm},
+				RenewTime:            metav1.Time{Time: tm.Add(time.Second)},
+			},
+		},
+		{
+			name: "partial fields",
+			spec: &coordv1.LeaseSpec{
+				HolderIdentity: strPtr("holder2"),
+			},
+			want: LockRecord{HolderIdentity: "holder2"},
+		},
+		{
+			name: "nil fields",
+			spec: &coordv1.LeaseSpec{},
+			want: LockRecord{},
+		},
+	}
+	for _, tt := range specs {
+		t.Run(tt.name, func(t *testing.T) {
+			got := LeaseSpecToLeaseLockRecord(tt.spec)
+			if !reflect.DeepEqual(*got, tt.want) {
+				t.Errorf("got %+v, want %+v", *got, tt.want)
+			}
+		})
+	}
+}
 
-	// Case 1: Valid NamespacedName
-	lock, err := newLeaseLock(nsn, fakeCoordClient, rlc)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestLeaseLockRecordToLeaseSpec(t *testing.T) {
+	tm := time.Now()
+	records := []struct {
+		name string
+		lr   LockRecord
+	}{
+		{
+			name: "full LockRecord spec",
+			lr: LockRecord{
+				HolderIdentity:       "holder1",
+				LeaseDurationSeconds: 30,
+				LeaseTransitions:     2,
+				AcquireTime:          metav1.Time{Time: tm},
+				RenewTime:            metav1.Time{Time: tm.Add(time.Second)},
+			},
+		},
+		{
+			name: "empty LockRecord spec",
+			lr:   LockRecord{},
+		},
+		{
+			name: "only holder identity in LockRecord spec",
+			lr: LockRecord{
+				HolderIdentity: "holder2",
+			},
+		},
 	}
-	if lock == nil {
-		t.Fatal("expected non-nil LeaseLock")
-	}
-	if lock.Describe() != "ns/test" {
-		t.Errorf("unexpected description: %v", lock.Describe())
-	}
-	if lock.Identity() != "identity1" {
-		t.Errorf("unexpected identity: %v", lock.Identity())
-	}
-
-	// Case 2: Uppercase NamespacedName (should convert to lowercase)
-	nsnUppercase := types.NamespacedName{Name: "test", Namespace: "ns"}
-	lock, err = newLeaseLock(nsnUppercase, fakeCoordClient, rlc)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if lock.Describe() != "ns/test" {
-		t.Errorf("unexpected description with uppercase input: %v", lock.Describe())
-	}
-
-	// Case 3: Nil NamespacedName
-	var nilNsn types.NamespacedName
-	lock, err = newLeaseLock(nilNsn, fakeCoordClient, rlc)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if lock == nil {
-		t.Fatal("expected non-nil LeaseLock")
-	}
-	if lock.Describe() != "/" {
-		t.Errorf("unexpected description: %v", lock.Describe())
-	}
-	if lock.Identity() != "identity1" {
-		t.Errorf("unexpected identity: %v", lock.Identity())
+	for _, tt := range records {
+		t.Run(tt.name, func(t *testing.T) {
+			got := LeaseLockRecordToLeaseSpec(&tt.lr)
+			if tt.lr.HolderIdentity != "" && (got.HolderIdentity == nil || *got.HolderIdentity != tt.lr.HolderIdentity) {
+				t.Errorf("HolderIdentity mismatch: got %v, want %v", got.HolderIdentity, tt.lr.HolderIdentity)
+			}
+			if got.LeaseDurationSeconds == nil || int(*got.LeaseDurationSeconds) != tt.lr.LeaseDurationSeconds {
+				t.Errorf("LeaseDurationSeconds mismatch: got %v, want %v", got.LeaseDurationSeconds, tt.lr.LeaseDurationSeconds)
+			}
+			if got.LeaseTransitions == nil || int(*got.LeaseTransitions) != tt.lr.LeaseTransitions {
+				t.Errorf("LeaseTransitions mismatch: got %v, want %v", got.LeaseTransitions, tt.lr.LeaseTransitions)
+			}
+			if got.AcquireTime == nil || !got.AcquireTime.Time.Equal(tt.lr.AcquireTime.Time) {
+				t.Errorf("AcquireTime mismatch: got %v, want %v", got.AcquireTime, tt.lr.AcquireTime)
+			}
+			if got.RenewTime == nil || !got.RenewTime.Time.Equal(tt.lr.RenewTime.Time) {
+				t.Errorf("RenewTime mismatch: got %v, want %v", got.RenewTime, tt.lr.RenewTime)
+			}
+		})
 	}
 }
 
