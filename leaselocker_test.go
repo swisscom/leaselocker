@@ -156,6 +156,125 @@ func Test_release(t *testing.T) {
 	}
 }
 
+func Test_tryAcquireOrRenew(t *testing.T) {
+	tests := []struct {
+		name           string
+		setup          func(*LeaseLocker, *mockLock)
+		expectedResult bool
+		checkState     func(*testing.T, *LeaseLocker, *mockLock)
+	}{
+		{
+			name: "acquire new lock when none exists",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.failGet = false
+				m.record = LockRecord{}
+			},
+			expectedResult: true,
+			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
+				if m.record.HolderIdentity != l.config.Lock.Identity() {
+					t.Errorf("Expected holder identity to be %s, got %s", l.config.Lock.Identity(), m.record.HolderIdentity)
+				}
+			},
+		},
+		{
+			name: "fail to get lock record",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.failGet = true
+			},
+			expectedResult: false,
+			checkState:     func(t *testing.T, l *LeaseLocker, m *mockLock) {},
+		},
+		{
+			name: "fail to update existing lock",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.failGet = false
+				m.failUpdate = true
+				m.record = LockRecord{
+					HolderIdentity: "other-holder",
+					RenewTime:      metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+				}
+			},
+			expectedResult: false,
+			checkState:     func(t *testing.T, l *LeaseLocker, m *mockLock) {},
+		},
+		{
+			name: "successfully renew own lock",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.record = LockRecord{
+					HolderIdentity:   m.identity,
+					RenewTime:        metav1.NewTime(time.Now()),
+					LeaseTransitions: 1,
+				}
+				l.setObservedRecord(&m.record)
+			},
+			expectedResult: true,
+			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
+				if m.record.LeaseTransitions != 1 {
+					t.Errorf("Expected lease transitions to remain 1, got %d", m.record.LeaseTransitions)
+				}
+			},
+		},
+		{
+			name: "acquire expired lock",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.record = LockRecord{
+					HolderIdentity:   "other-holder",
+					RenewTime:        metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+					LeaseTransitions: 1,
+				}
+			},
+			expectedResult: true,
+			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
+				if m.record.LeaseTransitions != 2 {
+					t.Errorf("Expected lease transitions to be 2, got %d", m.record.LeaseTransitions)
+				}
+			},
+		},
+		{
+			name: "fail to acquire valid lock held by other",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.record = LockRecord{
+					HolderIdentity:       "other-holder",
+					RenewTime:            metav1.NewTime(time.Now()),
+					LeaseDurationSeconds: 60,
+				}
+			},
+			expectedResult: false,
+			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
+				if m.record.HolderIdentity != "other-holder" {
+					t.Errorf("Expected holder to remain other-holder, got %s", m.record.HolderIdentity)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockLock := &mockLock{
+				identity: "holder1",
+			}
+
+			locker := &LeaseLocker{
+				config: Config{
+					Lock:          mockLock,
+					LeaseDuration: 60 * time.Second,
+				},
+				clock: clock.RealClock{},
+			}
+
+			tt.setup(locker, mockLock)
+
+			result := locker.tryAcquireOrRenew(context.Background())
+
+			if result != tt.expectedResult {
+				t.Errorf("tryAcquireOrRenew() = %v, want %v", result, tt.expectedResult)
+			}
+
+			tt.checkState(t, locker, mockLock)
+		})
+	}
+}
+
 func Test_isLeaseValid(t *testing.T) {
 	now := time.Now()
 
