@@ -13,7 +13,7 @@ import (
 	"k8s.io/utils/clock"
 )
 
-func Test_NewLeaseLocker(t *testing.T) {
+func TestNewLeaseLocker(t *testing.T) {
 	// We intentionally don't check for more than the url.Error type here because otherwise we'd need to add the Kubernetes API mocks
 	restConfig := &rest.Config{}
 	namespacedName := types.NamespacedName{Namespace: "default", Name: "test-lease"}
@@ -26,7 +26,7 @@ func Test_NewLeaseLocker(t *testing.T) {
 	}
 }
 
-func Test_newLeaseLockerWithConfig(t *testing.T) {
+func TestNewLeaseLockerWithConfig(t *testing.T) {
 	tests := []struct {
 		name        string
 		config      Config
@@ -148,7 +148,7 @@ func Test_newLeaseLockerWithConfig(t *testing.T) {
 	}
 }
 
-func Test_getLeaseHolder(t *testing.T) {
+func TestLeaseLocker_getLeaseHolder(t *testing.T) {
 	tests := []struct {
 		name       string
 		observed   LockRecord
@@ -170,7 +170,7 @@ func Test_getLeaseHolder(t *testing.T) {
 	}
 }
 
-func Test_holdsLock(t *testing.T) {
+func TestLeaseLocker_holdsLock(t *testing.T) {
 	tests := []struct {
 		name     string
 		observed LockRecord
@@ -196,7 +196,7 @@ func Test_holdsLock(t *testing.T) {
 	}
 }
 
-func Test_fetchLockRecord(t *testing.T) {
+func TestLeaseLocker_fetchLockRecord(t *testing.T) {
 	tests := []struct {
 		name        string
 		mockFail    bool
@@ -221,7 +221,7 @@ func Test_fetchLockRecord(t *testing.T) {
 	}
 }
 
-func Test_release(t *testing.T) {
+func TestLeaseLocker_release(t *testing.T) {
 	tests := []struct {
 		name      string
 		mockFail  bool
@@ -252,7 +252,7 @@ func Test_release(t *testing.T) {
 	}
 }
 
-func Test_TryLock(t *testing.T) {
+func TestLeaseLocker_TryLock(t *testing.T) {
 	tests := []struct {
 		name           string
 		setup          func(*LeaseLocker, *mockLock)
@@ -346,7 +346,7 @@ func Test_TryLock(t *testing.T) {
 	}
 }
 
-func Test_Unlock(t *testing.T) {
+func TestLeaseLocker_Unlock(t *testing.T) {
 	tests := []struct {
 		name           string
 		setup          func(*LeaseLocker, *mockLock)
@@ -435,7 +435,7 @@ func Test_Unlock(t *testing.T) {
 	}
 }
 
-func Test_acquire(t *testing.T) {
+func TestLeaseLocker_acquire(t *testing.T) {
 	tests := []struct {
 		name       string
 		setup      func(*LeaseLocker, *mockLock)
@@ -508,7 +508,7 @@ func Test_acquire(t *testing.T) {
 	}
 }
 
-func Test_tryAcquireOrRenew(t *testing.T) {
+func TestLeaseLocker_tryAcquireOrRenew(t *testing.T) {
 	tests := []struct {
 		name           string
 		setup          func(*LeaseLocker, *mockLock)
@@ -685,7 +685,7 @@ func TestLeaseLocker_Check(t *testing.T) {
 	}
 }
 
-func Test_isLeaseValid(t *testing.T) {
+func TestLeaseLocker_isLeaseValid(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
