@@ -5,7 +5,9 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/clock"
 )
 
@@ -154,35 +156,45 @@ func Test_release(t *testing.T) {
 	}
 }
 
-//func Test_isLeaseValid(t *testing.T) {
-//	now := time.Now()
-//
-//	tests := []struct {
-//		name     string
-//		record   LockRecord
-//		timeNow  time.Time
-//		expected bool
-//	}{
-//		{
-//			name: "valid lease",
-//			record: LockRecord{
-//				HolderIdentity:       "holder1",
-//				RenewTime:            metav1.NewTime(now.Add(-10 * time.Second)),
-//				LeaseDurationSeconds: 20,
-//			},
-//			timeNow:  now,
-//			expected: true,
-//		},
-//		{"expired lease", LockRecord{RenewTime: metav1.NewTime(now.Add(-30 * time.Second)), LeaseDurationSeconds: 20}, now, false},
-//	}
-//
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			locker := &LeaseLocker{}
-//			locker.setObservedRecord(&tt.record)
-//			if got := locker.isLeaseValid(tt.timeNow); got != tt.expected {
-//				t.Errorf("isLeaseValid() = %v, want %v", got, tt.expected)
-//			}
-//		})
-//	}
-//}
+func Test_isLeaseValid(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name     string
+		record   LockRecord
+		timeNow  time.Time
+		expected bool
+	}{
+		{
+			name: "valid lease",
+			record: LockRecord{
+				HolderIdentity:       "holder1",
+				RenewTime:            metav1.NewTime(now.Add(-10 * time.Second)),
+				LeaseDurationSeconds: 20,
+			},
+			timeNow:  now,
+			expected: true,
+		},
+		{
+			name: "expired lease",
+			record: LockRecord{
+				HolderIdentity:       "",
+				RenewTime:            metav1.NewTime(now.Add(-30 * time.Second)),
+				LeaseDurationSeconds: 20,
+			},
+			timeNow:  now,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			locker := &LeaseLocker{
+				observedRecord: tt.record,
+			}
+			if got := locker.isLeaseValid(tt.timeNow); got != tt.expected {
+				t.Errorf("isLeaseValid() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
