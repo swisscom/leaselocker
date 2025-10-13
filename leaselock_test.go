@@ -85,7 +85,6 @@ func TestLeaseLock_Get(t *testing.T) {
 	if len(data) == 0 {
 		t.Errorf("expected non-empty data")
 	}
-	// error case
 	ll.Client = &fakeLeaseClient{getErr: errors.New("fail")}
 	_, _, err = ll.Get(ctx)
 	if err == nil {
@@ -107,7 +106,6 @@ func TestLeaseLock_Create(t *testing.T) {
 	if ll.lease == nil || ll.lease.Spec.HolderIdentity == nil || *ll.lease.Spec.HolderIdentity != "holder" {
 		t.Errorf("lease not created correctly")
 	}
-	// error case
 	ll.Client = &fakeLeaseClient{createErr: errors.New("fail")}
 	err = ll.Create(ctx, lr)
 	if err == nil {
