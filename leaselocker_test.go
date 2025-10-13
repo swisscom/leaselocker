@@ -172,10 +172,10 @@ func TestLeaseLocker_getLeaseHolder(t *testing.T) {
 
 func TestLeaseLocker_holdsLock(t *testing.T) {
 	tests := []struct {
-		name     string
-		observed LockRecord
-		identity string
-		expected bool
+		name         string
+		observed     LockRecord
+		identity     string
+		wantHoldLock bool
 	}{
 		{"holds lock", LockRecord{HolderIdentity: "holder1"}, "holder1", true},
 		{"does not hold lock", LockRecord{HolderIdentity: "holder1"}, "another-holder", false},
@@ -189,8 +189,8 @@ func TestLeaseLocker_holdsLock(t *testing.T) {
 				config:         Config{Lock: mock},
 				observedRecord: tt.observed,
 			}
-			if got := locker.holdsLock(); got != tt.expected {
-				t.Errorf("holdsLock() = %v, want %v", got, tt.expected)
+			if got := locker.holdsLock(); got != tt.wantHoldLock {
+				t.Errorf("holdsLock() = %v, want %v", got, tt.wantHoldLock)
 			}
 		})
 	}
@@ -198,9 +198,9 @@ func TestLeaseLocker_holdsLock(t *testing.T) {
 
 func TestLeaseLocker_fetchLockRecord(t *testing.T) {
 	tests := []struct {
-		name        string
-		mockFail    bool
-		expectedErr bool
+		name     string
+		mockFail bool
+		wantErr  bool
 	}{
 		{"success case", false, false},
 		{"failure in Get", true, true},
@@ -215,8 +215,8 @@ func TestLeaseLocker_fetchLockRecord(t *testing.T) {
 			}
 			err := locker.fetchLockRecord(context.TODO())
 
-			if (err != nil) != tt.expectedErr {
-				t.Errorf("fetchLockRecord() error = %v, want %v", err != nil, tt.expectedErr)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("fetchLockRecord() error = %v, want %v", err != nil, tt.wantErr)
 			}
 		})
 	}
@@ -224,10 +224,10 @@ func TestLeaseLocker_fetchLockRecord(t *testing.T) {
 
 func TestLeaseLocker_release(t *testing.T) {
 	tests := []struct {
-		name      string
-		mockFail  bool
-		holdsLock bool
-		expected  bool
+		name            string
+		mockFail        bool
+		holdsLock       bool
+		wantReleaseLock bool
 	}{
 		{"success case", false, true, true},
 		{"failure in Update", true, true, false},
@@ -246,8 +246,8 @@ func TestLeaseLocker_release(t *testing.T) {
 				locker.observedRecord.HolderIdentity = mock.Identity()
 			}
 
-			if got := locker.release(); got != tt.expected {
-				t.Errorf("release() = %v, want %v", got, tt.expected)
+			if got := locker.release(); got != tt.wantReleaseLock {
+				t.Errorf("release() = %v, want %v", got, tt.wantReleaseLock)
 			}
 		})
 	}
@@ -255,17 +255,17 @@ func TestLeaseLocker_release(t *testing.T) {
 
 func TestLeaseLocker_TryLock(t *testing.T) {
 	tests := []struct {
-		name           string
-		setup          func(*LeaseLocker, *mockLock)
-		expectedResult bool
-		checkState     func(*testing.T, *LeaseLocker, *mockLock)
+		name        string
+		setup       func(*LeaseLocker, *mockLock)
+		wantTryLock bool
+		checkState  func(*testing.T, *LeaseLocker, *mockLock)
 	}{
 		{
 			name: "acquire lock successfully",
 			setup: func(l *LeaseLocker, m *mockLock) {
 				m.record = LockRecord{}
 			},
-			expectedResult: true,
+			wantTryLock: true,
 			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
 				if !l.holdsLock() {
 					t.Error("Expected to hold lock after successful acquisition")
@@ -281,7 +281,7 @@ func TestLeaseLocker_TryLock(t *testing.T) {
 					LeaseDurationSeconds: 60,
 				}
 			},
-			expectedResult: false,
+			wantTryLock: false,
 			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
 				if l.holdsLock() {
 					t.Error("Should not hold lock when acquisition fails")
@@ -297,7 +297,7 @@ func TestLeaseLocker_TryLock(t *testing.T) {
 					LeaseDurationSeconds: 60,
 				}
 			},
-			expectedResult: true,
+			wantTryLock: true,
 			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
 				if !l.holdsLock() {
 					t.Error("Expected to hold lock after acquiring expired lock")
@@ -309,7 +309,7 @@ func TestLeaseLocker_TryLock(t *testing.T) {
 			setup: func(l *LeaseLocker, m *mockLock) {
 				m.failGet = true
 			},
-			expectedResult: false,
+			wantTryLock: false,
 			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
 				if l.holdsLock() {
 					t.Error("Should not hold lock when Get fails")
@@ -338,8 +338,8 @@ func TestLeaseLocker_TryLock(t *testing.T) {
 			defer cancel()
 			result := locker.TryLock(ctx)
 
-			if result != tt.expectedResult {
-				t.Errorf("TryLock() = %v, want %v", result, tt.expectedResult)
+			if result != tt.wantTryLock {
+				t.Errorf("TryLock() = %v, want %v", result, tt.wantTryLock)
 			}
 
 			tt.checkState(t, locker, mockLock)
@@ -349,10 +349,10 @@ func TestLeaseLocker_TryLock(t *testing.T) {
 
 func TestLeaseLocker_Unlock(t *testing.T) {
 	tests := []struct {
-		name           string
-		setup          func(*LeaseLocker, *mockLock)
-		expectedResult bool
-		checkState     func(*testing.T, *LeaseLocker, *mockLock)
+		name       string
+		setup      func(*LeaseLocker, *mockLock)
+		wantUnlock bool
+		checkState func(*testing.T, *LeaseLocker, *mockLock)
 	}{
 		{
 			name: "successfully unlock held lock",
@@ -362,7 +362,7 @@ func TestLeaseLocker_Unlock(t *testing.T) {
 				}
 				l.observedRecord = m.record
 			},
-			expectedResult: true,
+			wantUnlock: true,
 			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
 				if l.holdsLock() {
 					t.Error("Should not hold lock after unlock")
@@ -380,7 +380,7 @@ func TestLeaseLocker_Unlock(t *testing.T) {
 				}
 				l.observedRecord = m.record
 			},
-			expectedResult: true,
+			wantUnlock: true,
 			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
 				if l.holdsLock() {
 					t.Error("Should not hold lock")
@@ -399,7 +399,7 @@ func TestLeaseLocker_Unlock(t *testing.T) {
 				}
 				l.observedRecord = m.record
 			},
-			expectedResult: false,
+			wantUnlock: false,
 			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
 				if !l.holdsLock() {
 					t.Error("Should still hold lock after failed unlock")
@@ -425,8 +425,8 @@ func TestLeaseLocker_Unlock(t *testing.T) {
 				tt.setup(locker, mockLock)
 			}
 			result := locker.Unlock()
-			if result != tt.expectedResult {
-				t.Errorf("Unlock() = %v, want %v", result, tt.expectedResult)
+			if result != tt.wantUnlock {
+				t.Errorf("Unlock() = %v, want %v", result, tt.wantUnlock)
 			}
 
 			if tt.checkState != nil {
@@ -511,10 +511,10 @@ func TestLeaseLocker_acquire(t *testing.T) {
 
 func TestLeaseLocker_tryAcquireOrRenew(t *testing.T) {
 	tests := []struct {
-		name           string
-		setup          func(*LeaseLocker, *mockLock)
-		expectedResult bool
-		checkState     func(*testing.T, *LeaseLocker, *mockLock)
+		name        string
+		setup       func(*LeaseLocker, *mockLock)
+		wantSuccess bool
+		checkState  func(*testing.T, *LeaseLocker, *mockLock)
 	}{
 		{
 			name: "acquire new lock when none exists",
@@ -522,7 +522,7 @@ func TestLeaseLocker_tryAcquireOrRenew(t *testing.T) {
 				m.failGet = false
 				m.record = LockRecord{}
 			},
-			expectedResult: true,
+			wantSuccess: true,
 			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
 				if m.record.HolderIdentity != l.config.Lock.Identity() {
 					t.Errorf("Expected holder identity to be %s, got %s", l.config.Lock.Identity(), m.record.HolderIdentity)
@@ -534,8 +534,8 @@ func TestLeaseLocker_tryAcquireOrRenew(t *testing.T) {
 			setup: func(l *LeaseLocker, m *mockLock) {
 				m.failGet = true
 			},
-			expectedResult: false,
-			checkState:     func(t *testing.T, l *LeaseLocker, m *mockLock) {},
+			wantSuccess: false,
+			checkState:  func(t *testing.T, l *LeaseLocker, m *mockLock) {},
 		},
 		{
 			name: "fail to update existing lock",
@@ -547,8 +547,8 @@ func TestLeaseLocker_tryAcquireOrRenew(t *testing.T) {
 					RenewTime:      metav1.NewTime(time.Now().Add(-2 * time.Hour)),
 				}
 			},
-			expectedResult: false,
-			checkState:     func(t *testing.T, l *LeaseLocker, m *mockLock) {},
+			wantSuccess: false,
+			checkState:  func(t *testing.T, l *LeaseLocker, m *mockLock) {},
 		},
 		{
 			name: "successfully renew own lock",
@@ -560,7 +560,7 @@ func TestLeaseLocker_tryAcquireOrRenew(t *testing.T) {
 				}
 				l.setObservedRecord(&m.record)
 			},
-			expectedResult: true,
+			wantSuccess: true,
 			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
 				if m.record.LeaseTransitions != 1 {
 					t.Errorf("Expected lease transitions to remain 1, got %d", m.record.LeaseTransitions)
@@ -576,7 +576,7 @@ func TestLeaseLocker_tryAcquireOrRenew(t *testing.T) {
 					LeaseTransitions: 1,
 				}
 			},
-			expectedResult: true,
+			wantSuccess: true,
 			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
 				if m.record.LeaseTransitions != 2 {
 					t.Errorf("Expected lease transitions to be 2, got %d", m.record.LeaseTransitions)
@@ -592,7 +592,7 @@ func TestLeaseLocker_tryAcquireOrRenew(t *testing.T) {
 					LeaseDurationSeconds: 60,
 				}
 			},
-			expectedResult: false,
+			wantSuccess: false,
 			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
 				if m.record.HolderIdentity != "other-holder" {
 					t.Errorf("Expected holder to remain other-holder, got %s", m.record.HolderIdentity)
@@ -619,8 +619,8 @@ func TestLeaseLocker_tryAcquireOrRenew(t *testing.T) {
 
 			result := locker.tryAcquireOrRenew(context.Background())
 
-			if result != tt.expectedResult {
-				t.Errorf("tryAcquireOrRenew() = %v, want %v", result, tt.expectedResult)
+			if result != tt.wantSuccess {
+				t.Errorf("tryAcquireOrRenew() = %v, want %v", result, tt.wantSuccess)
 			}
 
 			tt.checkState(t, locker, mockLock)
@@ -690,10 +690,10 @@ func TestLeaseLocker_isLeaseValid(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name     string
-		record   LockRecord
-		timeNow  time.Time
-		expected bool
+		name           string
+		record         LockRecord
+		timeNow        time.Time
+		wantValidLease bool
 	}{
 		{
 			name: "valid lease",
@@ -702,8 +702,8 @@ func TestLeaseLocker_isLeaseValid(t *testing.T) {
 				RenewTime:            metav1.NewTime(now.Add(-10 * time.Second)),
 				LeaseDurationSeconds: 20,
 			},
-			timeNow:  now,
-			expected: true,
+			timeNow:        now,
+			wantValidLease: true,
 		},
 		{
 			name: "expired lease",
@@ -712,8 +712,8 @@ func TestLeaseLocker_isLeaseValid(t *testing.T) {
 				RenewTime:            metav1.NewTime(now.Add(-30 * time.Second)),
 				LeaseDurationSeconds: 20,
 			},
-			timeNow:  now,
-			expected: false,
+			timeNow:        now,
+			wantValidLease: false,
 		},
 	}
 
@@ -722,8 +722,8 @@ func TestLeaseLocker_isLeaseValid(t *testing.T) {
 			locker := &LeaseLocker{
 				observedRecord: tt.record,
 			}
-			if got := locker.isLeaseValid(tt.timeNow); got != tt.expected {
-				t.Errorf("isLeaseValid() = %v, want %v", got, tt.expected)
+			if got := locker.isLeaseValid(tt.timeNow); got != tt.wantValidLease {
+				t.Errorf("isLeaseValid() = %v, want %v", got, tt.wantValidLease)
 			}
 		})
 	}
