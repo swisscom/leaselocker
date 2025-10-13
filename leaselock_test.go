@@ -254,7 +254,7 @@ func TestLeaseLock_RecordEvent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rlc := ResourceLockConfig{
-				Identity: "test-identity",
+				Identity: "holder1",
 			}
 			if tt.eventRecorder != nil {
 				rlc.EventRecorder = tt.eventRecorder
