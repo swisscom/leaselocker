@@ -275,6 +275,64 @@ func Test_tryAcquireOrRenew(t *testing.T) {
 	}
 }
 
+func TestLeaseLocker_Check(t *testing.T) {
+	tests := []struct {
+		name                string
+		holdsLock           bool
+		observedTime        time.Time
+		leaseDuration       time.Duration
+		maxTolerableExpired time.Duration
+		currentTime         time.Time
+		wantErr             bool
+	}{
+		{
+			name:                "within tolerable lease expiration",
+			holdsLock:           true,
+			observedTime:        time.Now(),
+			leaseDuration:       10 * time.Second,
+			maxTolerableExpired: 5 * time.Second,
+			currentTime:         time.Now().Add(14 * time.Second),
+			wantErr:             false,
+		},
+		{
+			name:                "exceeds tolerable lease expiration",
+			holdsLock:           true,
+			observedTime:        time.Now(),
+			leaseDuration:       10 * time.Second,
+			maxTolerableExpired: 5 * time.Second,
+			currentTime:         time.Now().Add(16 * time.Second),
+			wantErr:             true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClock := &testClock{
+				currentTime: tt.currentTime,
+			}
+
+			l := &LeaseLocker{
+				config: Config{
+					LeaseDuration: tt.leaseDuration,
+					Name:          "test-lease",
+				},
+				clock:        mockClock,
+				observedTime: tt.observedTime,
+			}
+
+			if tt.holdsLock {
+				l.observedRecord.HolderIdentity = "test-holder"
+				l.config.Lock = &mockLock{identity: "test-holder"}
+			}
+
+			err := l.Check(tt.maxTolerableExpired)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Check() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func Test_isLeaseValid(t *testing.T) {
 	now := time.Now()
 
