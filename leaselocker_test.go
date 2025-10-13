@@ -250,6 +250,95 @@ func Test_TryLock(t *testing.T) {
 	}
 }
 
+func Test_Unlock(t *testing.T) {
+	tests := []struct {
+		name           string
+		setup          func(*LeaseLocker, *mockLock)
+		expectedResult bool
+		checkState     func(*testing.T, *LeaseLocker, *mockLock)
+	}{
+		{
+			name: "successfully unlock held lock",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.record = LockRecord{
+					HolderIdentity: m.identity,
+				}
+				l.observedRecord = m.record
+			},
+			expectedResult: true,
+			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
+				if l.holdsLock() {
+					t.Error("Should not hold lock after unlock")
+				}
+				if m.record.HolderIdentity != "" {
+					t.Error("Lock record should be cleared")
+				}
+			},
+		},
+		{
+			name: "unlock when lock not held",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.record = LockRecord{
+					HolderIdentity: "other-holder",
+				}
+				l.observedRecord = m.record
+			},
+			expectedResult: true,
+			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
+				if l.holdsLock() {
+					t.Error("Should not hold lock")
+				}
+				if m.record.HolderIdentity != "other-holder" {
+					t.Error("Should not modify other holder's lock")
+				}
+			},
+		},
+		{
+			name: "unlock fails when update fails",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.failUpdate = true
+				m.record = LockRecord{
+					HolderIdentity: m.identity,
+				}
+				l.observedRecord = m.record
+			},
+			expectedResult: false,
+			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
+				if !l.holdsLock() {
+					t.Error("Should still hold lock after failed unlock")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockLock := &mockLock{
+				identity: "test-holder",
+			}
+			locker := &LeaseLocker{
+				config: Config{
+					Lock: mockLock,
+				},
+				clock:         clock.RealClock{},
+				lockCtx:       context.Background(),
+				lockCtxCancel: func() {},
+			}
+			if tt.setup != nil {
+				tt.setup(locker, mockLock)
+			}
+			result := locker.Unlock()
+			if result != tt.expectedResult {
+				t.Errorf("Unlock() = %v, want %v", result, tt.expectedResult)
+			}
+
+			if tt.checkState != nil {
+				tt.checkState(t, locker, mockLock)
+			}
+		})
+	}
+}
+
 func Test_tryAcquireOrRenew(t *testing.T) {
 	tests := []struct {
 		name           string
