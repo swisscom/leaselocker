@@ -156,6 +156,100 @@ func Test_release(t *testing.T) {
 	}
 }
 
+func Test_TryLock(t *testing.T) {
+	tests := []struct {
+		name           string
+		setup          func(*LeaseLocker, *mockLock)
+		expectedResult bool
+		checkState     func(*testing.T, *LeaseLocker, *mockLock)
+	}{
+		{
+			name: "acquire lock successfully",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.record = LockRecord{}
+			},
+			expectedResult: true,
+			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
+				if !l.holdsLock() {
+					t.Error("Expected to hold lock after successful acquisition")
+				}
+			},
+		},
+		{
+			name: "fail to acquire locked resource",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.record = LockRecord{
+					HolderIdentity:       "other-holder",
+					RenewTime:            metav1.NewTime(time.Now()),
+					LeaseDurationSeconds: 60,
+				}
+			},
+			expectedResult: false,
+			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
+				if l.holdsLock() {
+					t.Error("Should not hold lock when acquisition fails")
+				}
+			},
+		},
+		{
+			name: "acquire expired lock",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.record = LockRecord{
+					HolderIdentity:       "other-holder",
+					RenewTime:            metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+					LeaseDurationSeconds: 60,
+				}
+			},
+			expectedResult: true,
+			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
+				if !l.holdsLock() {
+					t.Error("Expected to hold lock after acquiring expired lock")
+				}
+			},
+		},
+		{
+			name: "fail when Get fails",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.failGet = true
+			},
+			expectedResult: false,
+			checkState: func(t *testing.T, l *LeaseLocker, m *mockLock) {
+				if l.holdsLock() {
+					t.Error("Should not hold lock when Get fails")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockLock := &mockLock{
+				identity: "test-holder",
+			}
+			locker := &LeaseLocker{
+				config: Config{
+					Lock:          mockLock,
+					LeaseDuration: 60 * time.Second,
+				},
+				clock: clock.RealClock{},
+			}
+
+			tt.setup(locker, mockLock)
+
+			// Todo(jstudler): Fix hang in TryLock
+			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+			defer cancel()
+			result := locker.TryLock(ctx)
+
+			if result != tt.expectedResult {
+				t.Errorf("TryLock() = %v, want %v", result, tt.expectedResult)
+			}
+
+			tt.checkState(t, locker, mockLock)
+		})
+	}
+}
+
 func Test_tryAcquireOrRenew(t *testing.T) {
 	tests := []struct {
 		name           string
