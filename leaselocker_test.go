@@ -339,6 +339,79 @@ func Test_Unlock(t *testing.T) {
 	}
 }
 
+func Test_acquire(t *testing.T) {
+	tests := []struct {
+		name       string
+		setup      func(*LeaseLocker, *mockLock)
+		wantResult bool
+	}{
+		{
+			name: "acquire lock on first try",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.record = LockRecord{}
+			},
+			wantResult: true,
+		},
+		{
+			name: "acquire lock after retries",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.record = LockRecord{
+					HolderIdentity:       "other-holder",
+					RenewTime:            metav1.NewTime(time.Now()),
+					LeaseDurationSeconds: 1,
+				}
+			},
+			wantResult: true,
+		},
+		{
+			name: "fail to acquire after max retries",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.record = LockRecord{
+					HolderIdentity:       "other-holder",
+					RenewTime:            metav1.NewTime(time.Now()),
+					LeaseDurationSeconds: 60,
+				}
+			},
+			wantResult: false,
+		},
+		{
+			name: "fail when Get fails",
+			setup: func(l *LeaseLocker, m *mockLock) {
+				m.failGet = true
+			},
+			wantResult: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockLock := &mockLock{
+				identity: "test-holder",
+			}
+			locker := &LeaseLocker{
+				config: Config{
+					Lock:          mockLock,
+					LeaseDuration: 60 * time.Second,
+				},
+				clock: clock.RealClock{},
+			}
+
+			if tt.setup != nil {
+				tt.setup(locker, mockLock)
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+			defer cancel()
+
+			result := locker.acquire(ctx)
+
+			if result != tt.wantResult {
+				t.Errorf("acquire() result = %v, want %v", result, tt.wantResult)
+			}
+		})
+	}
+}
+
 func Test_tryAcquireOrRenew(t *testing.T) {
 	tests := []struct {
 		name           string
