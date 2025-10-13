@@ -52,6 +52,128 @@ func (m *mockLock) Create(ctx context.Context, record LockRecord) error {
 	return nil
 }
 
+func Test_newLeaseLockerWithConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      Config
+		wantErr     bool
+		checkLocker func(*testing.T, *LeaseLocker)
+	}{
+		{
+			name: "valid config",
+			config: Config{
+				Lock:          &mockLock{identity: "test-holder"},
+				LeaseDuration: 60 * time.Second,
+				Name:          "test-lease",
+				RenewDeadline: 10 * time.Second,
+				RetryPeriod:   5 * time.Second,
+			},
+			wantErr: false,
+			checkLocker: func(t *testing.T, l *LeaseLocker) {
+				if l.config.Lock == nil {
+					t.Error("Lock not set")
+				}
+				if l.config.LeaseDuration != 60*time.Second {
+					t.Error("Incorrect lease duration")
+				}
+				if l.config.Name != "test-lease" {
+					t.Error("Incorrect name")
+				}
+			},
+		},
+		{
+			name: "missing lock",
+			config: Config{
+				LeaseDuration: 60 * time.Second,
+				Name:          "test-lease",
+				RenewDeadline: 10 * time.Second,
+				RetryPeriod:   5 * time.Second,
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing lease duration",
+			config: Config{
+				Lock:          &mockLock{identity: "test-holder"},
+				Name:          "test-lease",
+				RenewDeadline: 10 * time.Second,
+				RetryPeriod:   5 * time.Second,
+			},
+			wantErr: true,
+		},
+		{
+			name: "negative lease duration",
+			config: Config{
+				Lock:          &mockLock{identity: "test-holder"},
+				LeaseDuration: -60 * time.Second,
+				Name:          "test-lease",
+				RenewDeadline: 10 * time.Second,
+				RetryPeriod:   5 * time.Second,
+			},
+			wantErr: true,
+		},
+		{
+			name: "lease duration is zero",
+			config: Config{
+				Lock:          &mockLock{identity: "test-holder"},
+				LeaseDuration: 0 * time.Second,
+				Name:          "test-lease",
+				RenewDeadline: 10 * time.Second,
+				RetryPeriod:   5 * time.Second,
+			},
+			wantErr: true,
+		},
+		{
+			name: "negative renew deadline",
+			config: Config{
+				Lock:          &mockLock{identity: "test-holder"},
+				LeaseDuration: 60 * time.Second,
+				Name:          "test-lease",
+				RenewDeadline: -10 * time.Second,
+				RetryPeriod:   5 * time.Second,
+			},
+			wantErr: true,
+		},
+		{
+			name: "renew deadline is zero",
+			config: Config{
+				Lock:          &mockLock{identity: "test-holder"},
+				LeaseDuration: 60 * time.Second,
+				Name:          "test-lease",
+				RenewDeadline: 0 * time.Second,
+				RetryPeriod:   5 * time.Second,
+			},
+			wantErr: true,
+		},
+		{
+			name: "renew deadline less than retry period",
+			config: Config{
+				Lock:          &mockLock{identity: "test-holder"},
+				LeaseDuration: 60 * time.Second,
+				Name:          "test-lease",
+				RenewDeadline: 1 * time.Second,
+				RetryPeriod:   5 * time.Second,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			locker, err := newLeaseLockerWithConfig(tt.config)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("newLeaseLockerWithConfig() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if !tt.wantErr && tt.checkLocker != nil {
+				tt.checkLocker(t, locker)
+			}
+		})
+	}
+}
+
 func Test_getLeaseHolder(t *testing.T) {
 	tests := []struct {
 		name       string
