@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/url"
-	"sync"
 	"testing"
 	"time"
 
@@ -13,47 +12,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/clock"
 )
-
-type mockLock struct {
-	identity   string
-	record     LockRecord
-	mutex      sync.Mutex
-	failGet    bool
-	failUpdate bool
-}
-
-func (m *mockLock) Identity() string {
-	return m.identity
-}
-
-func (m *mockLock) Get(ctx context.Context) (*LockRecord, []byte, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	if m.failGet {
-		return &LockRecord{}, nil, errors.New("failed to get lock")
-	}
-	return &m.record, nil, nil
-}
-
-func (m *mockLock) Update(ctx context.Context, record LockRecord) error {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	if m.failUpdate {
-		return errors.New("failed to update lock")
-	}
-	m.record = record
-	return nil
-}
-
-func (m *mockLock) RecordEvent(msg string) {}
-
-func (m *mockLock) Describe() string {
-	return "MockLock"
-}
-
-func (m *mockLock) Create(ctx context.Context, record LockRecord) error {
-	return nil
-}
 
 func Test_NewLeaseLocker(t *testing.T) {
 	// We intentionally don't check for more than the url.Error type here because otherwise we'd need to add the Kubernetes API mocks
