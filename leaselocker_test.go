@@ -438,16 +438,16 @@ func TestLeaseLocker_Unlock(t *testing.T) {
 
 func TestLeaseLocker_acquire(t *testing.T) {
 	tests := []struct {
-		name       string
-		setup      func(*LeaseLocker, *mockLock)
-		wantResult bool
+		name        string
+		setup       func(*LeaseLocker, *mockLock)
+		wantAcquire bool
 	}{
 		{
 			name: "acquire lock on first try",
 			setup: func(l *LeaseLocker, m *mockLock) {
 				m.record = LockRecord{}
 			},
-			wantResult: true,
+			wantAcquire: true,
 		},
 		{
 			name: "acquire lock after retries",
@@ -458,7 +458,7 @@ func TestLeaseLocker_acquire(t *testing.T) {
 					LeaseDurationSeconds: 1,
 				}
 			},
-			wantResult: true,
+			wantAcquire: true,
 		},
 		{
 			name: "fail to acquire after max retries",
@@ -469,14 +469,14 @@ func TestLeaseLocker_acquire(t *testing.T) {
 					LeaseDurationSeconds: 60,
 				}
 			},
-			wantResult: false,
+			wantAcquire: false,
 		},
 		{
 			name: "fail when Get fails",
 			setup: func(l *LeaseLocker, m *mockLock) {
 				m.failGet = true
 			},
-			wantResult: false,
+			wantAcquire: false,
 		},
 	}
 
@@ -502,8 +502,8 @@ func TestLeaseLocker_acquire(t *testing.T) {
 
 			result := locker.acquire(ctx)
 
-			if result != tt.wantResult {
-				t.Errorf("acquire() result = %v, want %v", result, tt.wantResult)
+			if result != tt.wantAcquire {
+				t.Errorf("acquire() result = %v, want %v", result, tt.wantAcquire)
 			}
 		})
 	}
