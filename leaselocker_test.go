@@ -202,7 +202,7 @@ func TestLeaseLocker_fetchLockRecord(t *testing.T) {
 		mockFail    bool
 		expectedErr bool
 	}{
-		// {"success case", false, false},
+		{"success case", false, false},
 		{"failure in Get", true, true},
 	}
 
@@ -211,6 +211,7 @@ func TestLeaseLocker_fetchLockRecord(t *testing.T) {
 			mock := &mockLock{failGet: tt.mockFail}
 			locker := &LeaseLocker{
 				config: Config{Lock: mock},
+				clock:  clock.RealClock{},
 			}
 			err := locker.fetchLockRecord(context.TODO())
 
