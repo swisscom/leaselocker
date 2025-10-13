@@ -3,11 +3,14 @@ package leaselocker
 import (
 	"context"
 	"errors"
+	"net/url"
 	"sync"
 	"testing"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/utils/clock"
 )
 
@@ -50,6 +53,19 @@ func (m *mockLock) Describe() string {
 
 func (m *mockLock) Create(ctx context.Context, record LockRecord) error {
 	return nil
+}
+
+func Test_NewLeaseLocker(t *testing.T) {
+	// We intentionally don't check for more than the url.Error type here because otherwise we'd need to add the Kubernetes API mocks
+	restConfig := &rest.Config{}
+	namespacedName := types.NamespacedName{Namespace: "default", Name: "test-lease"}
+	identity := "test-holder"
+
+	_, err := NewLeaseLocker(restConfig, namespacedName, identity)
+	var urlErr *url.Error
+	if !errors.As(err, &urlErr) {
+		t.Errorf("NewLeaseLocker() unexpected error: %v", err)
+	}
 }
 
 func Test_newLeaseLockerWithConfig(t *testing.T) {
