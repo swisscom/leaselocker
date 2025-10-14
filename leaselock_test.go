@@ -104,7 +104,7 @@ func TestLeaseLock_Get(t *testing.T) {
 	ll.Client = &fakeLeaseClient{getErr: errors.New("fail")}
 	_, _, err = ll.Get(ctx)
 	if err == nil {
-		t.Errorf("expected error")
+		t.Errorf("expected error but got 'nil'")
 	}
 }
 
