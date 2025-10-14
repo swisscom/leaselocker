@@ -61,8 +61,8 @@ func TestNewLeaseLock(t *testing.T) {
 
 	for _, tt := range specs {
 		t.Run(tt.name, func(t *testing.T) {
-			rlc := ResourceLockConfig{Identity: tt.identity}
-			got, err := newLeaseLock(tt.nsn, fakeCoordClient, rlc)
+			config := ResourceLockConfig{Identity: tt.identity}
+			got, err := newLeaseLock(tt.nsn, fakeCoordClient, config)
 			if err != nil {
 				t.Fatalf("unexpected error: got %v", err)
 			}
