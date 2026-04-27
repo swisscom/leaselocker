@@ -26,7 +26,7 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/api/coordination/v1"
+	v1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -116,7 +116,7 @@ func (ll *LeaseLock) RecordEvent(s string) {
 	// Populate the type meta, so we don't have to get it from the schema
 	subject.Kind = "Lease"
 	subject.APIVersion = v1.SchemeGroupVersion.String()
-	ll.LockConfig.EventRecorder.Eventf(subject, corev1.EventTypeNormal, "Locking", events)
+	ll.LockConfig.EventRecorder.Eventf(subject, corev1.EventTypeNormal, "Locking", "%s", events)
 }
 
 // Describe is used to convert details on current resource lock
