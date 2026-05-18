@@ -6,11 +6,11 @@ module github.com/swisscom/leaselocker
 go 1.26.0
 
 require (
-	k8s.io/api v0.36.0
-	k8s.io/apimachinery v0.36.0
-	k8s.io/client-go v0.36.0
+	k8s.io/api v0.36.1
+	k8s.io/apimachinery v0.36.1
+	k8s.io/client-go v0.36.1
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
-	sigs.k8s.io/controller-runtime v0.24.0
+	sigs.k8s.io/controller-runtime v0.24.1
 )
 
 require (
