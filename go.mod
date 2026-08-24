@@ -6,9 +6,9 @@ module github.com/swisscom/leaselocker
 go 1.26.0
 
 require (
-	k8s.io/api v0.36.3
-	k8s.io/apimachinery v0.36.3
-	k8s.io/client-go v0.36.3
+	k8s.io/api v0.36.4
+	k8s.io/apimachinery v0.36.4
+	k8s.io/client-go v0.36.4
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	sigs.k8s.io/controller-runtime v0.24.1
 )
@@ -16,22 +16,22 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
-	github.com/fxamacker/cbor/v2 v2.9.2 // indirect
+	github.com/fxamacker/cbor/v2 v2.9.3 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-openapi/jsonpointer v1.0.0 // indirect
 	github.com/go-openapi/jsonreference v1.0.0 // indirect
-	github.com/go-openapi/swag v0.28.0 // indirect
-	github.com/go-openapi/swag/cmdutils v0.28.0 // indirect
-	github.com/go-openapi/swag/conv v0.28.0 // indirect
-	github.com/go-openapi/swag/fileutils v0.28.0 // indirect
-	github.com/go-openapi/swag/jsonutils v0.28.0 // indirect
-	github.com/go-openapi/swag/loading v0.28.0 // indirect
-	github.com/go-openapi/swag/mangling v0.28.0 // indirect
-	github.com/go-openapi/swag/netutils v0.28.0 // indirect
-	github.com/go-openapi/swag/pools v0.28.0 // indirect
-	github.com/go-openapi/swag/stringutils v0.28.0 // indirect
-	github.com/go-openapi/swag/typeutils v0.28.0 // indirect
-	github.com/go-openapi/swag/yamlutils v0.28.0 // indirect
+	github.com/go-openapi/swag v0.29.0 // indirect
+	github.com/go-openapi/swag/cmdutils v0.29.0 // indirect
+	github.com/go-openapi/swag/conv v0.29.0 // indirect
+	github.com/go-openapi/swag/fileutils v0.29.0 // indirect
+	github.com/go-openapi/swag/jsonutils v0.29.0 // indirect
+	github.com/go-openapi/swag/loading v0.29.0 // indirect
+	github.com/go-openapi/swag/mangling v0.29.0 // indirect
+	github.com/go-openapi/swag/netutils v0.29.0 // indirect
+	github.com/go-openapi/swag/pools v0.29.0 // indirect
+	github.com/go-openapi/swag/stringutils v0.29.0 // indirect
+	github.com/go-openapi/swag/typeutils v0.29.0 // indirect
+	github.com/go-openapi/swag/yamlutils v0.29.0 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
